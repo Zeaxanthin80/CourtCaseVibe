@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtCaseVibe - Audio Upload & Transcription</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CourtCaseVibe</h1>
+            <p>Automated Court Hearing Transcription & Statute Verification</p>
+        </header>
+
+        <main>
+            <section id="upload-section">
+                <h2>Upload Court Hearing Audio</h2>
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label for="hearing-date">Hearing Date:</label>
+                        <input type="date" id="hearing-date" name="hearing-date" required>
+                    </div>
+                    
+                    <div class="files-container">
+                        <div class="file-input">
+                            <label for="audio-file">Audio File:</label>
+                            <input type="file" class="audio-file" name="audio-file" accept=".mp3,.wav,.m4a,.ogg" required>
+                            <button type="button" class="remove-file-btn" style="display:none;">Remove</button>
+                        </div>
+                    </div>
+
+                    <button type="button" id="add-file-btn">+ Add Another File</button>
+                    
+                    <div class="submit-container">
+                        <button type="submit" id="upload-btn">Upload & Transcribe</button>
+                        <div id="upload-progress" class="progress-bar" style="display: none;">
+                            <div class="progress"></div>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <section id="results-section" style="display: none;">
+                <h2>Transcription Results</h2>
+                <div id="transcriptions-container"></div>
+                <button id="new-upload-btn">Upload New Files</button>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 CourtCaseVibe - Court Hearing Transcription Tool</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
