@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+backend/venv/
+venv/
+ENV/
+env/
+
+# Audio files
+*.mp3
+*.wav
+*.aac
+*.ogg
+uploads/
+transcriptions/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cache and database
+.cache/
+*.db
+*.sqlite3
+
+# Environment variables
+.env
+
+# Node (if frontend is React)
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnp/
+.pnp.js
+frontend/node_modules/
+frontend/build/
+
+# Logs
+logs/
+*.log

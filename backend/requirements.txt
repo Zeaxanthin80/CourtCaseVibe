@@ -1,0 +1,14 @@
+openai-whisper
+spacy
+transformers
+sentence-transformers
+fastapi
+uvicorn
+python-multipart
+requests
+beautifulsoup4
+pydantic
+sqlalchemy
+aiofiles
+pillow
+pytest
