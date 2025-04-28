@@ -1,10 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
     const uploadForm = document.getElementById('upload-form');
-    const hearingDateInput = document.getElementById('hearing-date');
-    const addFileBtn = document.getElementById('add-file-btn');
+    const hearingsContainer = document.getElementById('hearings-container');
+    const addHearingBtn = document.getElementById('add-hearing-btn');
     const uploadBtn = document.getElementById('upload-btn');
-    const filesContainer = document.querySelector('.files-container');
     const uploadProgress = document.getElementById('upload-progress');
     const progressBar = uploadProgress.querySelector('.progress');
     const resultsSection = document.getElementById('results-section');
@@ -12,59 +11,163 @@ document.addEventListener('DOMContentLoaded', function() {
     const newUploadBtn = document.getElementById('new-upload-btn');
     const downloadReportBtn = document.getElementById('download-report-btn');
     
-    // Set default hearing date to today
+    // Set default hearing date to today for the first hearing
     const today = new Date().toISOString().split('T')[0];
-    hearingDateInput.value = today;
+    document.getElementById('hearing-date-1').value = today;
 
-    // Add file input
-    addFileBtn.addEventListener('click', function() {
-        const fileInputDiv = document.createElement('div');
-        fileInputDiv.className = 'file-input';
-        fileInputDiv.innerHTML = `
-            <label for="audio-file">Audio File:</label>
-            <input type="file" class="audio-file" name="audio-file" accept=".mp3,.wav,.m4a,.ogg" required>
-            <button type="button" class="remove-file-btn">Remove</button>
+    // Counter for hearings
+    let hearingCounter = 1;
+
+    // Add event listeners to the initial file and hearing buttons
+    addInitialEventListeners();
+
+    // Add hearing group
+    addHearingBtn.addEventListener('click', function() {
+        hearingCounter++;
+        
+        const hearingGroup = document.createElement('div');
+        hearingGroup.className = 'hearing-group';
+        hearingGroup.innerHTML = `
+            <div class="hearing-header">
+                <h3>Hearing #${hearingCounter}</h3>
+                <button type="button" class="remove-hearing-btn">Remove Hearing</button>
+            </div>
+            <div class="form-group">
+                <label for="hearing-date-${hearingCounter}">Hearing Date:</label>
+                <input type="date" class="hearing-date" id="hearing-date-${hearingCounter}" name="hearing-date-${hearingCounter}" required value="${today}">
+            </div>
+            
+            <div class="files-container">
+                <div class="file-input">
+                    <label for="audio-file-${hearingCounter}-1">Audio File:</label>
+                    <input type="file" class="audio-file" id="audio-file-${hearingCounter}-1" name="audio-file-${hearingCounter}-1" accept=".mp3,.wav,.m4a,.ogg" required>
+                    <button type="button" class="remove-file-btn" style="display:none;">Remove</button>
+                </div>
+            </div>
+
+            <button type="button" class="add-file-btn">+ Add Another Audio Part for this Same Hearing Date</button>
         `;
         
-        // Add event listener to remove button
-        const removeBtn = fileInputDiv.querySelector('.remove-file-btn');
-        removeBtn.addEventListener('click', function() {
-            filesContainer.removeChild(fileInputDiv);
-        });
+        hearingsContainer.appendChild(hearingGroup);
         
-        filesContainer.appendChild(fileInputDiv);
+        // Add event listeners to the new hearing group
+        const newHearing = hearingsContainer.lastElementChild;
+        addEventListenersToHearingGroup(newHearing);
+        
+        // Show all remove hearing buttons when there's more than one hearing
+        updateRemoveHearingButtonsVisibility();
     });
 
-    // Show first remove button if there's more than one file input
-    document.addEventListener('click', function() {
-        const fileInputs = document.querySelectorAll('.file-input');
-        if (fileInputs.length > 1) {
-            document.querySelectorAll('.remove-file-btn').forEach(btn => {
-                btn.style.display = 'inline-block';
+    // Function to add event listeners to the initial hearing group
+    function addInitialEventListeners() {
+        const initialHearingGroup = document.querySelector('.hearing-group');
+        addEventListenersToHearingGroup(initialHearingGroup);
+    }
+
+    // Function to add event listeners to a hearing group
+    function addEventListenersToHearingGroup(hearingGroup) {
+        // Add file button
+        const addFileBtn = hearingGroup.querySelector('.add-file-btn');
+        const filesContainer = hearingGroup.querySelector('.files-container');
+        const hearingIndex = Array.from(hearingsContainer.children).indexOf(hearingGroup) + 1;
+        
+        let fileCounter = 1;
+        
+        addFileBtn.addEventListener('click', function() {
+            // Count existing file inputs in this hearing
+            fileCounter = filesContainer.children.length + 1;
+            
+            const fileInputDiv = document.createElement('div');
+            fileInputDiv.className = 'file-input';
+            fileInputDiv.innerHTML = `
+                <label for="audio-file-${hearingIndex}-${fileCounter}">Audio File:</label>
+                <input type="file" class="audio-file" id="audio-file-${hearingIndex}-${fileCounter}" name="audio-file-${hearingIndex}-${fileCounter}" accept=".mp3,.wav,.m4a,.ogg" required>
+                <button type="button" class="remove-file-btn">Remove</button>
+            `;
+            
+            filesContainer.appendChild(fileInputDiv);
+            
+            // Add event listener to new remove button
+            const removeBtn = fileInputDiv.querySelector('.remove-file-btn');
+            removeBtn.addEventListener('click', function() {
+                filesContainer.removeChild(fileInputDiv);
+                updateRemoveFileButtonsVisibility(filesContainer);
             });
-        } else {
-            document.querySelector('.remove-file-btn').style.display = 'none';
+            
+            updateRemoveFileButtonsVisibility(filesContainer);
+        });
+        
+        // Remove hearing button
+        const removeHearingBtn = hearingGroup.querySelector('.remove-hearing-btn');
+        removeHearingBtn.addEventListener('click', function() {
+            hearingsContainer.removeChild(hearingGroup);
+            updateRemoveHearingButtonsVisibility();
+        });
+        
+        // Handle file removal buttons
+        const initialRemoveFileBtn = hearingGroup.querySelector('.remove-file-btn');
+        initialRemoveFileBtn.addEventListener('click', function(e) {
+            const fileInput = e.target.closest('.file-input');
+            filesContainer.removeChild(fileInput);
+            updateRemoveFileButtonsVisibility(filesContainer);
+        });
+    }
+
+    // Function to update the visibility of remove file buttons
+    function updateRemoveFileButtonsVisibility(filesContainer) {
+        const fileInputs = filesContainer.querySelectorAll('.file-input');
+        if (fileInputs.length > 1) {
+            fileInputs.forEach(input => {
+                input.querySelector('.remove-file-btn').style.display = 'inline-block';
+            });
+        } else if (fileInputs.length === 1) {
+            fileInputs[0].querySelector('.remove-file-btn').style.display = 'none';
         }
-    });
+    }
+
+    // Function to update the visibility of remove hearing buttons
+    function updateRemoveHearingButtonsVisibility() {
+        const hearingGroups = hearingsContainer.querySelectorAll('.hearing-group');
+        if (hearingGroups.length > 1) {
+            hearingGroups.forEach(group => {
+                group.querySelector('.remove-hearing-btn').style.display = 'inline-block';
+            });
+        } else if (hearingGroups.length === 1) {
+            hearingGroups[0].querySelector('.remove-hearing-btn').style.display = 'none';
+        }
+    }
 
     // Handle form submission
     uploadForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const hearingDate = hearingDateInput.value;
-        const fileInputs = document.querySelectorAll('.audio-file');
+        const hearingGroups = document.querySelectorAll('.hearing-group');
         
-        if (!hearingDate) {
-            alert('Please select a hearing date');
-            return;
+        // Check if we have valid input
+        let hasFiles = false;
+        let allDatesProvided = true;
+        
+        for (const hearingGroup of hearingGroups) {
+            const hearingDate = hearingGroup.querySelector('.hearing-date').value;
+            const fileInputs = hearingGroup.querySelectorAll('.audio-file');
+            
+            if (!hearingDate) {
+                allDatesProvided = false;
+            }
+            
+            for (const input of fileInputs) {
+                if (input.files.length > 0) {
+                    hasFiles = true;
+                    break;
+                }
+            }
+            
+            if (hasFiles) break;
         }
         
-        let hasFiles = false;
-        for (const input of fileInputs) {
-            if (input.files.length > 0) {
-                hasFiles = true;
-                break;
-            }
+        if (!allDatesProvided) {
+            alert('Please select a date for each hearing');
+            return;
         }
         
         if (!hasFiles) {
@@ -77,71 +180,102 @@ document.addEventListener('DOMContentLoaded', function() {
         uploadProgress.style.display = 'block';
         progressBar.style.width = '0%';
         
-        // Upload files and collect file IDs
-        const fileIds = [];
+        // Upload files and collect file IDs for each hearing
+        const hearingData = [];
+        let totalFilesCount = 0;
         let filesProcessed = 0;
         
-        for (const input of fileInputs) {
-            if (input.files.length === 0) continue;
-            
-            const file = input.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('hearing_date', hearingDate);
-            
-            try {
-                const response = await fetch('http://localhost:8000/upload/', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Upload failed: ${response.statusText}`);
+        // Count total files first for progress calculation
+        for (const hearingGroup of hearingGroups) {
+            const fileInputs = hearingGroup.querySelectorAll('.audio-file');
+            for (const input of fileInputs) {
+                if (input.files.length > 0) {
+                    totalFilesCount++;
                 }
-                
-                const data = await response.json();
-                fileIds.push(data.file_id);
-                
-                // Update progress
-                filesProcessed++;
-                const progress = Math.round((filesProcessed / fileInputs.length) * 50); // First 50% for uploads
-                progressBar.style.width = `${progress}%`;
-                
-            } catch (error) {
-                console.error('Error uploading file:', error);
-                alert(`Error uploading file: ${error.message}`);
-                uploadBtn.disabled = false;
-                uploadProgress.style.display = 'none';
-                return;
             }
         }
         
-        // Transcribe audio files
+        // Process each hearing group
+        for (const hearingGroup of hearingGroups) {
+            const hearingDate = hearingGroup.querySelector('.hearing-date').value;
+            const fileInputs = hearingGroup.querySelectorAll('.audio-file');
+            const hearingFiles = [];
+            
+            for (const input of fileInputs) {
+                if (input.files.length === 0) continue;
+                
+                const file = input.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('hearing_date', hearingDate);
+                
+                try {
+                    const response = await fetch('http://localhost:8000/upload/', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Upload failed: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    hearingFiles.push(data.file_id);
+                    
+                    // Update progress
+                    filesProcessed++;
+                    const progress = Math.round((filesProcessed / totalFilesCount) * 50); // First 50% for uploads
+                    progressBar.style.width = `${progress}%`;
+                    
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    alert(`Error uploading file: ${error.message}`);
+                    uploadBtn.disabled = false;
+                    uploadProgress.style.display = 'none';
+                    return;
+                }
+            }
+            
+            if (hearingFiles.length > 0) {
+                hearingData.push({
+                    hearing_date: hearingDate,
+                    file_ids: hearingFiles
+                });
+            }
+        }
+        
+        // Transcribe audio files for all hearings
         try {
             progressBar.style.width = '50%'; // Start second half of progress (transcription)
             
-            const transcribeResponse = await fetch('http://localhost:8000/transcribe/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    hearing_date: hearingDate,
-                    file_ids: fileIds
-                })
-            });
+            const allTranscriptions = [];
             
-            if (!transcribeResponse.ok) {
-                throw new Error(`Transcription failed: ${transcribeResponse.statusText}`);
+            // Process each hearing's transcription
+            for (const hearing of hearingData) {
+                const transcribeResponse = await fetch('http://localhost:8000/transcribe/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        hearing_date: hearing.hearing_date,
+                        file_ids: hearing.file_ids
+                    })
+                });
+                
+                if (!transcribeResponse.ok) {
+                    throw new Error(`Transcription failed: ${transcribeResponse.statusText}`);
+                }
+                
+                const transcriptions = await transcribeResponse.json();
+                allTranscriptions.push(...transcriptions);
             }
-            
-            const transcriptions = await transcribeResponse.json();
             
             // Update progress to 100%
             progressBar.style.width = '100%';
             
             // Display transcription results
-            displayTranscriptions(transcriptions);
+            displayTranscriptions(allTranscriptions);
             
             // Hide upload form and show results
             document.getElementById('upload-section').style.display = 'none';
@@ -168,116 +302,144 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Group transcriptions by hearing date
+        const transcriptionsByDate = {};
+        
         for (const item of transcriptions) {
-            const transcriptionDiv = document.createElement('div');
-            transcriptionDiv.className = 'transcription-item';
+            const date = item.hearing_date;
+            if (!transcriptionsByDate[date]) {
+                transcriptionsByDate[date] = [];
+            }
+            transcriptionsByDate[date].push(item);
+        }
+        
+        // Display transcriptions grouped by hearing date
+        for (const date in transcriptionsByDate) {
+            const dateItems = transcriptionsByDate[date];
             
-            // Create statutes summary section
-            let statutesSummary = '';
-            if (item.statutes && item.statutes.length > 0) {
-                // Create comparison results display if available
-                let comparisonContent = '';
-                if (item.statute_comparisons && item.statute_comparisons.length > 0) {
-                    comparisonContent = `
-                        <div class="statute-comparisons">
-                            <h4>Statute Verification Results:</h4>
-                            <div class="comparison-list">
-                                ${item.statute_comparisons.map(comp => `
-                                    <div class="comparison-item ${comp.is_discrepancy ? 'discrepancy' : 'match'}">
-                                        <div class="comparison-header">
-                                            <span class="statute-id">${comp.statute_id}</span>
-                                            <span class="similarity-score">
-                                                Match: ${(comp.similarity_score * 100).toFixed(1)}%
-                                                ${comp.is_discrepancy ? 
-                                                    '<span class="discrepancy-flag">⚠️ Potential Discrepancy</span>' : 
-                                                    '<span class="match-flag">✓ Verified</span>'}
-                                            </span>
-                                        </div>
-                                        <div class="comparison-details">
-                                            <div class="comparison-section">
-                                                <h5>From Hearing:</h5>
-                                                <p class="transcript-text">"${escapeHtml(comp.transcript_text)}"</p>
+            // Create hearing date section with updated class names
+            const dateSection = document.createElement('div');
+            dateSection.className = 'hearing-date-section';
+            dateSection.innerHTML = `
+                <h3 class="hearing-date-heading">Hearing Date: ${date}</h3>
+                <div class="hearing-transcriptions"></div>
+            `;
+            
+            const hearingTranscriptions = dateSection.querySelector('.hearing-transcriptions');
+            
+            // Add each transcription for this date
+            for (const item of dateItems) {
+                const transcriptionDiv = document.createElement('div');
+                transcriptionDiv.className = 'transcription-item';
+                
+                // Create statutes summary section
+                let statutesSummary = '';
+                if (item.statutes && item.statutes.length > 0) {
+                    // Create comparison results display if available
+                    let comparisonContent = '';
+                    if (item.statute_comparisons && item.statute_comparisons.length > 0) {
+                        comparisonContent = `
+                            <div class="statute-comparisons">
+                                <h4>Statute Verification Results:</h4>
+                                <div class="comparison-list">
+                                    ${item.statute_comparisons.map(comp => `
+                                        <div class="comparison-item ${comp.is_discrepancy ? 'discrepancy' : 'match'}">
+                                            <div class="comparison-header">
+                                                <span class="statute-id">${comp.statute_id}</span>
+                                                <span class="similarity-score">
+                                                    Match: ${(comp.similarity_score * 100).toFixed(1)}%
+                                                    ${comp.is_discrepancy ? 
+                                                        '<span class="discrepancy-flag">⚠️ Potential Discrepancy</span>' : 
+                                                        '<span class="match-flag">✓ Verified</span>'}
+                                                </span>
                                             </div>
-                                            <div class="comparison-section">
-                                                <h5>From Florida Statutes:</h5>
-                                                ${comp.error ? 
-                                                    `<p class="error-message">${escapeHtml(comp.error)}</p>` :
-                                                    `<p class="statute-title">${escapeHtml(comp.title || '')}</p>
-                                                     <p class="statute-text">${escapeHtml(truncateText(comp.statute_text, 200))}</p>`
-                                                }
-                                                <a href="${comp.url}" target="_blank" class="statute-link">View on Official Florida Statutes Website</a>
+                                            <div class="comparison-details">
+                                                <div class="comparison-section">
+                                                    <h5>From Hearing:</h5>
+                                                    <p class="transcript-text">"${escapeHtml(comp.transcript_text)}"</p>
+                                                </div>
+                                                <div class="comparison-section">
+                                                    <h5>From Florida Statutes:</h5>
+                                                    ${comp.error ? 
+                                                        `<p class="error-message">${escapeHtml(comp.error)}</p>` :
+                                                        `<p class="statute-title">${escapeHtml(comp.title || '')}</p>
+                                                         <p class="statute-text">${escapeHtml(truncateText(comp.statute_text, 200))}</p>`
+                                                    }
+                                                    <a href="${comp.url}" target="_blank" class="statute-link">View on Official Florida Statutes Website</a>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                `).join('')}
+                                    `).join('')}
+                                </div>
                             </div>
+                        `;
+                    }
+                    
+                    statutesSummary = `
+                        <div class="statutes-summary">
+                            <h4>Statute References Found (${item.statutes.length}):</h4>
+                            <ul class="statutes-list">
+                                ${item.statutes.map(statute => `
+                                    <li>
+                                        <span class="statute-id">${statute.statute_id}</span> - 
+                                        <span class="statute-text">"${statute.text}"</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            ${comparisonContent}
+                        </div>
+                    `;
+                } else {
+                    statutesSummary = `
+                        <div class="statutes-summary">
+                            <p>No statute references found in this transcription.</p>
                         </div>
                     `;
                 }
                 
-                statutesSummary = `
-                    <div class="statutes-summary">
-                        <h4>Statute References Found (${item.statutes.length}):</h4>
-                        <ul class="statutes-list">
-                            ${item.statutes.map(statute => `
-                                <li>
-                                    <span class="statute-id">${statute.statute_id}</span> - 
-                                    <span class="statute-text">"${statute.text}"</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                        ${comparisonContent}
+                transcriptionDiv.innerHTML = `
+                    <h4>Transcription for File ID: ${item.file_id.substring(0, 8)}...</h4>
+                    ${statutesSummary}
+                    <div class="transcription-text">
+                        ${item.highlighted_transcription || item.transcription}
                     </div>
                 `;
-            } else {
-                statutesSummary = `
-                    <div class="statutes-summary">
-                        <p>No statute references found in this transcription.</p>
-                    </div>
-                `;
+                
+                hearingTranscriptions.appendChild(transcriptionDiv);
+                
+                // Add event listeners for statute reference hovers
+                setTimeout(() => {
+                    const statuteRefs = transcriptionDiv.querySelectorAll('.statute-reference');
+                    statuteRefs.forEach(ref => {
+                        ref.addEventListener('mouseenter', function() {
+                            this.classList.add('hover');
+                            const statuteId = this.getAttribute('data-statute-id');
+                            const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
+                            relatedRefs.forEach(relRef => {
+                                if (relRef !== this) {
+                                    relRef.classList.add('related');
+                                }
+                            });
+                        });
+                        
+                        ref.addEventListener('mouseleave', function() {
+                            this.classList.remove('hover');
+                            const statuteId = this.getAttribute('data-statute-id');
+                            const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
+                            relatedRefs.forEach(relRef => {
+                                relRef.classList.remove('related');
+                            });
+                        });
+                        
+                        ref.addEventListener('click', function() {
+                            const statuteId = this.getAttribute('data-statute-id');
+                            fetchAndDisplayStatuteDetails(statuteId, this);
+                        });
+                    });
+                }, 100);
             }
             
-            transcriptionDiv.innerHTML = `
-                <h3>Transcription for File ID: ${item.file_id.substring(0, 8)}...</h3>
-                <p><strong>Hearing Date:</strong> ${item.hearing_date}</p>
-                ${statutesSummary}
-                <div class="transcription-text">
-                    ${item.highlighted_transcription || item.transcription}
-                </div>
-            `;
-            
-            // Add event listeners for statute reference hovers
-            setTimeout(() => {
-                const statuteRefs = transcriptionDiv.querySelectorAll('.statute-reference');
-                statuteRefs.forEach(ref => {
-                    ref.addEventListener('mouseenter', function() {
-                        this.classList.add('hover');
-                        const statuteId = this.getAttribute('data-statute-id');
-                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
-                        relatedRefs.forEach(relRef => {
-                            if (relRef !== this) {
-                                relRef.classList.add('related');
-                            }
-                        });
-                    });
-                    
-                    ref.addEventListener('mouseleave', function() {
-                        this.classList.remove('hover');
-                        const statuteId = this.getAttribute('data-statute-id');
-                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
-                        relatedRefs.forEach(relRef => {
-                            relRef.classList.remove('related');
-                        });
-                    });
-                    
-                    ref.addEventListener('click', function() {
-                        const statuteId = this.getAttribute('data-statute-id');
-                        fetchAndDisplayStatuteDetails(statuteId, this);
-                    });
-                });
-            }, 100);
-            
-            transcriptionsContainer.appendChild(transcriptionDiv);
+            transcriptionsContainer.appendChild(dateSection);
         }
     }
     
@@ -385,15 +547,39 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // New upload button
     newUploadBtn.addEventListener('click', function() {
-        // Reset form
+        // Reset form and hearing counter
         uploadForm.reset();
-        hearingDateInput.value = today;
+        hearingCounter = 1;
         
-        // Remove extra file inputs
-        const fileInputs = document.querySelectorAll('.file-input');
-        for (let i = 1; i < fileInputs.length; i++) {
-            filesContainer.removeChild(fileInputs[i]);
-        }
+        // Clear existing hearing groups
+        hearingsContainer.innerHTML = '';
+        
+        // Add back first hearing group
+        const hearingGroup = document.createElement('div');
+        hearingGroup.className = 'hearing-group';
+        hearingGroup.innerHTML = `
+            <div class="hearing-header">
+                <h3>Hearing #1</h3>
+                <button type="button" class="remove-hearing-btn" style="display:none;">Remove Hearing</button>
+            </div>
+            <div class="form-group">
+                <label for="hearing-date-1">Hearing Date:</label>
+                <input type="date" class="hearing-date" id="hearing-date-1" name="hearing-date-1" required value="${today}">
+            </div>
+            
+            <div class="files-container">
+                <div class="file-input">
+                    <label for="audio-file-1-1">Audio File:</label>
+                    <input type="file" class="audio-file" id="audio-file-1-1" name="audio-file-1-1" accept=".mp3,.wav,.m4a,.ogg" required>
+                    <button type="button" class="remove-file-btn" style="display:none;">Remove</button>
+                </div>
+            </div>
+
+            <button type="button" class="add-file-btn">+ Add Another Audio Part for this Same Hearing Date</button>
+        `;
+        
+        hearingsContainer.appendChild(hearingGroup);
+        addEventListenersToHearingGroup(hearingGroup);
         
         // Hide results and show upload form
         resultsSection.style.display = 'none';
@@ -441,339 +627,89 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="export-format-icon">JSON</div>
                         <div class="export-format-details">
                             <label for="json-format">JSON Data</label>
-                            <p>Raw data format for developers or further processing</p>
+                            <p>Machine-readable format for further processing or integration</p>
                         </div>
                     </div>
                 </div>
                 
-                <div class="export-buttons">
-                    <button class="cancel-export-btn">Cancel</button>
-                    <button class="download-btn" id="confirm-export-btn">Generate Report</button>
+                <div class="export-options-actions">
+                    <button id="generate-report-btn" class="primary-button">Generate Report</button>
+                    <button class="cancel-button close-modal">Cancel</button>
                 </div>
             </div>
         `;
         
-        // Append modal to container
-        modalContainer.appendChild(modalContent);
-        
-        // Append container to body
         document.body.appendChild(modalContainer);
         
         // Add event listeners
-        const closeButton = modalContent.querySelector('.close-modal');
-        closeButton.addEventListener('click', function() {
-            document.body.removeChild(modalContainer);
-        });
-        
-        const cancelButton = modalContent.querySelector('.cancel-export-btn');
-        cancelButton.addEventListener('click', function() {
-            document.body.removeChild(modalContainer);
+        const closeButtons = modalContent.querySelectorAll('.close-modal');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                document.body.removeChild(modalContainer);
+            });
         });
         
         // Format option selection
         const formatOptions = modalContent.querySelectorAll('.export-format-option');
         formatOptions.forEach(option => {
             option.addEventListener('click', function() {
-                // Unselect all options
                 formatOptions.forEach(opt => opt.classList.remove('selected'));
-                // Select this option
                 this.classList.add('selected');
-                // Check the radio button
                 this.querySelector('input[type="radio"]').checked = true;
             });
         });
         
-        // Generate report
-        const confirmButton = modalContent.querySelector('#confirm-export-btn');
-        confirmButton.addEventListener('click', async function() {
-            // Get selected format
+        // Generate report button
+        const generateReportBtn = modalContent.querySelector('#generate-report-btn');
+        generateReportBtn.addEventListener('click', async function() {
             const selectedFormat = modalContent.querySelector('input[name="export-format"]:checked').value;
             
-            // Update button to show loading state
-            confirmButton.disabled = true;
-            confirmButton.textContent = 'Generating...';
+            // Show loading state
+            this.textContent = 'Generating...';
+            this.disabled = true;
             
             try {
-                // Call the API to generate the report
-                await generateAndDownloadReport(selectedFormat);
+                const response = await fetch('http://localhost:8000/generate-report/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        format: selectedFormat,
+                        transcriptions: window.currentTranscriptions,
+                        metadata: {
+                            generated_by: "CourtCaseVibe User",
+                            generation_date: new Date().toISOString()
+                        }
+                    })
+                });
                 
-                // Close the modal after successful generation
-                document.body.removeChild(modalContainer);
-            } catch (error) {
-                console.error('Error generating report:', error);
-                alert('Error generating report: ' + error.message);
-                
-                // Reset button state
-                confirmButton.disabled = false;
-                confirmButton.textContent = 'Generate Report';
-            }
-        });
-        
-        // Close when clicking outside the modal
-        modalContainer.addEventListener('click', function(e) {
-            if (e.target === modalContainer) {
-                document.body.removeChild(modalContainer);
-            }
-        });
-    }
-    
-    // Generate and download report
-    async function generateAndDownloadReport(format) {
-        try {
-            // Prepare metadata
-            const metadata = {
-                generated_date: new Date().toISOString(),
-                report_type: "Court Hearing Analysis",
-                user_agent: navigator.userAgent
-            };
-            
-            // Call the generate-report endpoint
-            const response = await fetch('http://localhost:8000/generate-report', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    format: format,
-                    transcriptions: window.currentTranscriptions,
-                    metadata: metadata
-                })
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to generate report');
-            }
-            
-            const data = await response.json();
-            
-            // Create a direct link to download the file and click it
-            const downloadUrl = `http://localhost:8000${data.download_link}`;
-            
-            // Create a hidden link element
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = downloadUrl.split('/').pop(); // Extract filename
-            downloadLink.style.display = 'none';
-            
-            // Add to document and trigger click
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            
-            // Clean up
-            setTimeout(() => {
-                document.body.removeChild(downloadLink);
-            }, 100);
-            
-        } catch (error) {
-            console.error('Error generating or downloading report:', error);
-            throw error;
-        }
-    }
-    
-    // Update displayTranscriptions to store transcription data for report generation
-    function displayTranscriptions(transcriptions) {
-        // Store transcriptions for report generation
-        window.currentTranscriptions = transcriptions;
-        
-        transcriptionsContainer.innerHTML = '';
-        
-        if (transcriptions.length === 0) {
-            transcriptionsContainer.innerHTML = '<p>No transcriptions found.</p>';
-            return;
-        }
-        
-        for (const item of transcriptions) {
-            const transcriptionDiv = document.createElement('div');
-            transcriptionDiv.className = 'transcription-item';
-            
-            // Create statutes summary section
-            let statutesSummary = '';
-            if (item.statutes && item.statutes.length > 0) {
-                // Create comparison results display if available
-                let comparisonContent = '';
-                if (item.statute_comparisons && item.statute_comparisons.length > 0) {
-                    comparisonContent = `
-                        <div class="statute-comparisons">
-                            <h4>Statute Verification Results:</h4>
-                            <div class="comparison-list">
-                                ${item.statute_comparisons.map(comp => `
-                                    <div class="comparison-item ${comp.is_discrepancy ? 'discrepancy' : 'match'}">
-                                        <div class="comparison-header">
-                                            <span class="statute-id">${comp.statute_id}</span>
-                                            <span class="similarity-score">
-                                                Match: ${(comp.similarity_score * 100).toFixed(1)}%
-                                                ${comp.is_discrepancy ? 
-                                                    '<span class="discrepancy-flag">⚠️ Potential Discrepancy</span>' : 
-                                                    '<span class="match-flag">✓ Verified</span>'}
-                                            </span>
-                                        </div>
-                                        <div class="comparison-details">
-                                            <div class="comparison-section">
-                                                <h5>From Hearing:</h5>
-                                                <p class="transcript-text">"${escapeHtml(comp.transcript_text)}"</p>
-                                            </div>
-                                            <div class="comparison-section">
-                                                <h5>From Florida Statutes:</h5>
-                                                ${comp.error ? 
-                                                    `<p class="error-message">${escapeHtml(comp.error)}</p>` :
-                                                    `<p class="statute-title">${escapeHtml(comp.title || '')}</p>
-                                                     <p class="statute-text">${escapeHtml(truncateText(comp.statute_text, 200))}</p>`
-                                                }
-                                                <a href="${comp.url}" target="_blank" class="statute-link">View on Official Florida Statutes Website</a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Error generating report: ${response.statusText}`);
                 }
                 
-                statutesSummary = `
-                    <div class="statutes-summary">
-                        <h4>Statute References Found (${item.statutes.length}):</h4>
-                        <ul class="statutes-list">
-                            ${item.statutes.map(statute => `
-                                <li>
-                                    <span class="statute-id">${statute.statute_id}</span> - 
-                                    <span class="statute-text">"${statute.text}"</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                        ${comparisonContent}
-                    </div>
-                `;
-            } else {
-                statutesSummary = `
-                    <div class="statutes-summary">
-                        <p>No statute references found in this transcription.</p>
-                    </div>
-                `;
+                const data = await response.json();
+                
+                // Remove the modal
+                document.body.removeChild(modalContainer);
+                
+                // Show success message with link to download
+                alert(`Report generated successfully! Saved to: ${data.file_path}`);
+                
+                // Open the file location (this will depend on browser and OS)
+                window.open(`http://localhost:8000/download-report/?path=${encodeURIComponent(data.file_path)}`);
+                
+            } catch (error) {
+                console.error('Error generating report:', error);
+                alert(`Error generating report: ${error.message}`);
+                this.textContent = 'Generate Report';
+                this.disabled = false;
             }
-            
-            transcriptionDiv.innerHTML = `
-                <h3>Transcription for File ID: ${item.file_id.substring(0, 8)}...</h3>
-                <p><strong>Hearing Date:</strong> ${item.hearing_date}</p>
-                ${statutesSummary}
-                <div class="transcription-text">
-                    ${item.highlighted_transcription || item.transcription}
-                </div>
-            `;
-            
-            // Add event listeners for statute reference hovers
-            setTimeout(() => {
-                const statuteRefs = transcriptionDiv.querySelectorAll('.statute-reference');
-                statuteRefs.forEach(ref => {
-                    ref.addEventListener('mouseenter', function() {
-                        this.classList.add('hover');
-                        const statuteId = this.getAttribute('data-statute-id');
-                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
-                        relatedRefs.forEach(relRef => {
-                            if (relRef !== this) {
-                                relRef.classList.add('related');
-                            }
-                        });
-                    });
-                    
-                    ref.addEventListener('mouseleave', function() {
-                        this.classList.remove('hover');
-                        const statuteId = this.getAttribute('data-statute-id');
-                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
-                        relatedRefs.forEach(relRef => {
-                            relRef.classList.remove('related');
-                        });
-                    });
-                    
-                    ref.addEventListener('click', function() {
-                        const statuteId = this.getAttribute('data-statute-id');
-                        fetchAndDisplayStatuteDetails(statuteId, this);
-                    });
-                });
-            }, 100);
-            
-            transcriptionsContainer.appendChild(transcriptionDiv);
-        }
-    }
-    
-    // Helper function to fetch and display statute details in a modal
-    async function fetchAndDisplayStatuteDetails(statuteId, element) {
-        try {
-            // Show loading indicator near the clicked element
-            const rect = element.getBoundingClientRect();
-            const loadingIndicator = document.createElement('div');
-            loadingIndicator.className = 'loading-indicator';
-            loadingIndicator.textContent = 'Loading statute...';
-            loadingIndicator.style.position = 'absolute';
-            loadingIndicator.style.top = `${window.scrollY + rect.bottom + 10}px`;
-            loadingIndicator.style.left = `${rect.left}px`;
-            document.body.appendChild(loadingIndicator);
-            
-            // Fetch statute details from the API
-            const response = await fetch(`http://localhost:8000/statute/${statuteId}`);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch statute: ${response.statusText}`);
-            }
-            
-            const statuteData = await response.json();
-            
-            // Remove loading indicator
-            document.body.removeChild(loadingIndicator);
-            
-            // Create statute details modal
-            showStatuteModal(statuteData);
-        } catch (error) {
-            console.error('Error fetching statute details:', error);
-            alert(`Error fetching statute details: ${error.message}`);
-        }
-    }
-    
-    // Helper function to display a statute modal
-    function showStatuteModal(statuteData) {
-        // Create modal container
-        const modalContainer = document.createElement('div');
-        modalContainer.className = 'statute-modal-container';
-        
-        // Create modal content
-        const modalContent = document.createElement('div');
-        modalContent.className = 'statute-modal';
-        
-        // Format the statute text with better readability
-        const statuteText = statuteData.text || 'Statute text not available';
-        
-        modalContent.innerHTML = `
-            <div class="statute-modal-header">
-                <h3>${statuteData.title || `Statute ${statuteData.statute_id}`}</h3>
-                <button class="close-modal">×</button>
-            </div>
-            <div class="statute-modal-body">
-                <p><strong>Statute ID:</strong> ${statuteData.statute_id}</p>
-                <div class="statute-full-text">
-                    <h4>Full Text:</h4>
-                    <pre>${escapeHtml(statuteText)}</pre>
-                </div>
-                <p class="statute-source">
-                    <a href="${statuteData.url}" target="_blank">View on Official Florida Statutes Website</a>
-                </p>
-                <p class="statute-cache-info">
-                    ${statuteData.cached ? 
-                        `<span class="cached-tag">Cached</span> Last updated: ${statuteData.last_updated || 'Unknown'}` : 
-                        '<span class="live-tag">Live Data</span>'}
-                </p>
-            </div>
-        `;
-        
-        // Append modal to container
-        modalContainer.appendChild(modalContent);
-        
-        // Append container to body
-        document.body.appendChild(modalContainer);
-        
-        // Add close functionality
-        const closeButton = modalContent.querySelector('.close-modal');
-        closeButton.addEventListener('click', function() {
-            document.body.removeChild(modalContainer);
         });
+        
+        // Append modal to container and body
+        modalContainer.appendChild(modalContent);
         
         // Close when clicking outside the modal
         modalContainer.addEventListener('click', function(e) {
@@ -781,20 +717,5 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.body.removeChild(modalContainer);
             }
         });
-    }
-    
-    // Helper function to escape HTML special characters
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    // Helper function to truncate text with ellipsis
-    function truncateText(text, maxLength) {
-        if (!text) return '';
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength) + '...';
     }
 });
