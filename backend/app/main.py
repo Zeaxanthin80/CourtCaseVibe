@@ -9,6 +9,7 @@ import whisper
 from pydantic import BaseModel
 from typing import List, Optional
 import time
+from app.services.statute_extractor import StatuteExtractor
 
 app = FastAPI(title="CourtCaseVibe API", description="API for court case audio transcription and statute verification")
 
@@ -35,14 +36,26 @@ def get_whisper_model():
         model = whisper.load_model("small")  # Options: tiny, base, small, medium, large
     return model
 
+# Initialize the statute extractor
+statute_extractor = StatuteExtractor()
+
 class TranscriptionRequest(BaseModel):
     hearing_date: str
     file_ids: List[str]
 
+class StatuteReference(BaseModel):
+    statute_id: str
+    start_idx: int
+    end_idx: int
+    text: str
+    match_type: str
+
 class TranscriptionResponse(BaseModel):
     transcription: str
+    highlighted_transcription: str
     file_id: str
     hearing_date: str
+    statutes: List[StatuteReference]
 
 @app.get("/")
 async def root():
@@ -92,10 +105,26 @@ async def transcribe_audio(request: TranscriptionRequest):
             result = model.transcribe(file_path)
             transcription = result["text"]
             
+            # Extract statute references using our StatuteExtractor
+            statutes, highlighted_text = statute_extractor.get_highlighted_json(transcription)
+            
+            # Convert statutes to StatuteReference model objects
+            statute_references = [
+                StatuteReference(
+                    statute_id=statute["statute_id"],
+                    start_idx=statute["start_idx"],
+                    end_idx=statute["end_idx"],
+                    text=statute["text"],
+                    match_type=statute["match_type"]
+                ) for statute in statutes
+            ]
+            
             results.append(TranscriptionResponse(
                 transcription=transcription,
+                highlighted_transcription=highlighted_text,
                 file_id=file_id,
-                hearing_date=request.hearing_date
+                hearing_date=request.hearing_date,
+                statutes=statute_references
             ))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Transcription error: {str(e)}")

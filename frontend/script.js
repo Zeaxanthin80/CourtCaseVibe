@@ -168,13 +168,69 @@ document.addEventListener('DOMContentLoaded', function() {
             const transcriptionDiv = document.createElement('div');
             transcriptionDiv.className = 'transcription-item';
             
+            // Create statutes summary section
+            let statutesSummary = '';
+            if (item.statutes && item.statutes.length > 0) {
+                statutesSummary = `
+                    <div class="statutes-summary">
+                        <h4>Statute References Found (${item.statutes.length}):</h4>
+                        <ul class="statutes-list">
+                            ${item.statutes.map(statute => `
+                                <li>
+                                    <span class="statute-id">${statute.statute_id}</span> - 
+                                    <span class="statute-text">"${statute.text}"</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            } else {
+                statutesSummary = `
+                    <div class="statutes-summary">
+                        <p>No statute references found in this transcription.</p>
+                    </div>
+                `;
+            }
+            
             transcriptionDiv.innerHTML = `
                 <h3>Transcription for File ID: ${item.file_id.substring(0, 8)}...</h3>
                 <p><strong>Hearing Date:</strong> ${item.hearing_date}</p>
+                ${statutesSummary}
                 <div class="transcription-text">
-                    <p>${item.transcription}</p>
+                    ${item.highlighted_transcription || item.transcription}
                 </div>
             `;
+            
+            // Add event listeners for statute reference hovers
+            setTimeout(() => {
+                const statuteRefs = transcriptionDiv.querySelectorAll('.statute-reference');
+                statuteRefs.forEach(ref => {
+                    ref.addEventListener('mouseenter', function() {
+                        this.classList.add('hover');
+                        const statuteId = this.getAttribute('data-statute-id');
+                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
+                        relatedRefs.forEach(relRef => {
+                            if (relRef !== this) {
+                                relRef.classList.add('related');
+                            }
+                        });
+                    });
+                    
+                    ref.addEventListener('mouseleave', function() {
+                        this.classList.remove('hover');
+                        const statuteId = this.getAttribute('data-statute-id');
+                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
+                        relatedRefs.forEach(relRef => {
+                            relRef.classList.remove('related');
+                        });
+                    });
+                    
+                    ref.addEventListener('click', function() {
+                        const statuteId = this.getAttribute('data-statute-id');
+                        alert(`In the future, this will show detailed information about Florida Statute ${statuteId}`);
+                    });
+                });
+            }, 100);
             
             transcriptionsContainer.appendChild(transcriptionDiv);
         }
