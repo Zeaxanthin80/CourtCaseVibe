@@ -452,3 +452,123 @@ footer {
         width: 95%;
     }
 }
+
+/* Add styles for action buttons and download button */
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+}
+
+.download-btn {
+    background-color: #0891b2;
+}
+
+.download-btn:hover {
+    background-color: #0e7490;
+}
+
+/* Export options modal */
+.export-options-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.export-options-content {
+    background-color: white;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.export-options-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background-color: #0891b2;
+    color: white;
+}
+
+.export-options-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.export-options-body {
+    padding: 20px;
+}
+
+.export-format-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.export-format-option {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.export-format-option:hover {
+    background-color: #f1f5f9;
+}
+
+.export-format-option.selected {
+    background-color: #e0f2fe;
+    border-color: #0891b2;
+}
+
+.export-format-option input {
+    margin-right: 10px;
+}
+
+.export-format-icon {
+    width: 30px;
+    height: 30px;
+    margin-right: 15px;
+    background-color: #f8fafc;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: #0891b2;
+}
+
+.export-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.export-buttons button {
+    padding: 8px 15px;
+    font-size: 14px;
+}
+
+.cancel-export-btn {
+    background-color: #94a3b8;
+}
+
+.cancel-export-btn:hover {
+    background-color: #64748b;
+}

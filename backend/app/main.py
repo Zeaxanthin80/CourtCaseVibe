@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 import os
 import shutil
 import uuid
@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 import time
 from app.services.statute_extractor import StatuteExtractor
 from app.services.statute_lookup import StatuteLookupService
+from app.services.report_generator import ReportGenerator
 
 app = FastAPI(title="CourtCaseVibe API", description="API for court case audio transcription and statute verification")
 
@@ -43,6 +44,9 @@ statute_extractor = StatuteExtractor()
 # Initialize the statute lookup service
 statute_lookup = StatuteLookupService()
 
+# Initialize the report generator
+report_generator = ReportGenerator()
+
 class TranscriptionRequest(BaseModel):
     hearing_date: str
     file_ids: List[str]
@@ -71,6 +75,16 @@ class TranscriptionResponse(BaseModel):
     hearing_date: str
     statutes: List[StatuteReference]
     statute_comparisons: List[StatuteComparison] = []
+
+class ReportRequest(BaseModel):
+    format: str  # 'json' or 'pdf'
+    transcriptions: List[Dict[str, Any]]
+    metadata: Optional[Dict[str, Any]] = None
+
+class ReportResponse(BaseModel):
+    report_path: str
+    download_link: str
+    format: str
 
 @app.get("/")
 async def root():
@@ -190,6 +204,78 @@ async def get_statute(statute_id: str, force_refresh: bool = False):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving statute: {str(e)}")
+
+@app.post("/generate-report")
+async def generate_report(request: ReportRequest):
+    """
+    Generate a report of transcriptions and statute analyses
+    
+    Args:
+        request: ReportRequest containing format and transcription data
+        
+    Returns:
+        Path to the generated report file and a download link
+    """
+    try:
+        if request.format.lower() == 'json':
+            report_path = report_generator.generate_json_report(
+                request.transcriptions, 
+                request.metadata
+            )
+            content_type = "application/json"
+        elif request.format.lower() == 'pdf':
+            report_path = report_generator.generate_pdf_report(
+                request.transcriptions,
+                request.metadata
+            )
+            content_type = "application/pdf"
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported report format. Use 'json' or 'pdf'.")
+        
+        # Extract filename from path
+        filename = os.path.basename(report_path)
+        
+        # Create download endpoint for the file
+        download_link = f"/download-report/{filename}"
+        
+        return ReportResponse(
+            report_path=report_path,
+            download_link=download_link,
+            format=request.format.lower()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
+
+@app.get("/download-report/{filename}")
+async def download_report(filename: str):
+    """
+    Download a generated report file
+    
+    Args:
+        filename: The name of the report file to download
+        
+    Returns:
+        The report file as a download
+    """
+    reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "reports")
+    file_path = os.path.join(reports_dir, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Report file not found")
+    
+    # Determine content type based on file extension
+    if filename.endswith('.json'):
+        media_type = "application/json"
+    elif filename.endswith('.pdf'):
+        media_type = "application/pdf"
+    else:
+        media_type = "application/octet-stream"
+    
+    return FileResponse(
+        path=file_path, 
+        filename=filename,
+        media_type=media_type
+    )
 
 if __name__ == "__main__":
     import uvicorn

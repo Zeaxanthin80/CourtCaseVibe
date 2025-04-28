@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const resultsSection = document.getElementById('results-section');
     const transcriptionsContainer = document.getElementById('transcriptions-container');
     const newUploadBtn = document.getElementById('new-upload-btn');
-
+    const downloadReportBtn = document.getElementById('download-report-btn');
+    
     // Set default hearing date to today
     const today = new Date().toISOString().split('T')[0];
     hearingDateInput.value = today;
@@ -157,6 +158,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Display transcriptions
     function displayTranscriptions(transcriptions) {
+        // Store transcriptions for report generation
+        window.currentTranscriptions = transcriptions;
+        
         transcriptionsContainer.innerHTML = '';
         
         if (transcriptions.length === 0) {
@@ -395,4 +399,402 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsSection.style.display = 'none';
         document.getElementById('upload-section').style.display = 'block';
     });
+    
+    // Download report button
+    downloadReportBtn.addEventListener('click', function() {
+        if (!window.currentTranscriptions || window.currentTranscriptions.length === 0) {
+            alert('No transcription data available to generate a report');
+            return;
+        }
+        
+        showExportOptionsModal();
+    });
+    
+    // Show export options modal
+    function showExportOptionsModal() {
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'export-options-modal';
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'export-options-content';
+        
+        modalContent.innerHTML = `
+            <div class="export-options-header">
+                <h3>Export Report</h3>
+                <button class="close-modal">×</button>
+            </div>
+            <div class="export-options-body">
+                <p>Choose a format for your transcription and statute analysis report:</p>
+                
+                <div class="export-format-options">
+                    <div class="export-format-option selected" data-format="pdf">
+                        <input type="radio" name="export-format" id="pdf-format" value="pdf" checked>
+                        <div class="export-format-icon">PDF</div>
+                        <div class="export-format-details">
+                            <label for="pdf-format">PDF Document</label>
+                            <p>Well-formatted document with complete analysis and statute comparisons</p>
+                        </div>
+                    </div>
+                    
+                    <div class="export-format-option" data-format="json">
+                        <input type="radio" name="export-format" id="json-format" value="json">
+                        <div class="export-format-icon">JSON</div>
+                        <div class="export-format-details">
+                            <label for="json-format">JSON Data</label>
+                            <p>Raw data format for developers or further processing</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="export-buttons">
+                    <button class="cancel-export-btn">Cancel</button>
+                    <button class="download-btn" id="confirm-export-btn">Generate Report</button>
+                </div>
+            </div>
+        `;
+        
+        // Append modal to container
+        modalContainer.appendChild(modalContent);
+        
+        // Append container to body
+        document.body.appendChild(modalContainer);
+        
+        // Add event listeners
+        const closeButton = modalContent.querySelector('.close-modal');
+        closeButton.addEventListener('click', function() {
+            document.body.removeChild(modalContainer);
+        });
+        
+        const cancelButton = modalContent.querySelector('.cancel-export-btn');
+        cancelButton.addEventListener('click', function() {
+            document.body.removeChild(modalContainer);
+        });
+        
+        // Format option selection
+        const formatOptions = modalContent.querySelectorAll('.export-format-option');
+        formatOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                // Unselect all options
+                formatOptions.forEach(opt => opt.classList.remove('selected'));
+                // Select this option
+                this.classList.add('selected');
+                // Check the radio button
+                this.querySelector('input[type="radio"]').checked = true;
+            });
+        });
+        
+        // Generate report
+        const confirmButton = modalContent.querySelector('#confirm-export-btn');
+        confirmButton.addEventListener('click', async function() {
+            // Get selected format
+            const selectedFormat = modalContent.querySelector('input[name="export-format"]:checked').value;
+            
+            // Update button to show loading state
+            confirmButton.disabled = true;
+            confirmButton.textContent = 'Generating...';
+            
+            try {
+                // Call the API to generate the report
+                await generateAndDownloadReport(selectedFormat);
+                
+                // Close the modal after successful generation
+                document.body.removeChild(modalContainer);
+            } catch (error) {
+                console.error('Error generating report:', error);
+                alert('Error generating report: ' + error.message);
+                
+                // Reset button state
+                confirmButton.disabled = false;
+                confirmButton.textContent = 'Generate Report';
+            }
+        });
+        
+        // Close when clicking outside the modal
+        modalContainer.addEventListener('click', function(e) {
+            if (e.target === modalContainer) {
+                document.body.removeChild(modalContainer);
+            }
+        });
+    }
+    
+    // Generate and download report
+    async function generateAndDownloadReport(format) {
+        try {
+            // Prepare metadata
+            const metadata = {
+                generated_date: new Date().toISOString(),
+                report_type: "Court Hearing Analysis",
+                user_agent: navigator.userAgent
+            };
+            
+            // Call the generate-report endpoint
+            const response = await fetch('http://localhost:8000/generate-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    format: format,
+                    transcriptions: window.currentTranscriptions,
+                    metadata: metadata
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to generate report');
+            }
+            
+            const data = await response.json();
+            
+            // Create a direct link to download the file and click it
+            const downloadUrl = `http://localhost:8000${data.download_link}`;
+            
+            // Create a hidden link element
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = downloadUrl.split('/').pop(); // Extract filename
+            downloadLink.style.display = 'none';
+            
+            // Add to document and trigger click
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(downloadLink);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error generating or downloading report:', error);
+            throw error;
+        }
+    }
+    
+    // Update displayTranscriptions to store transcription data for report generation
+    function displayTranscriptions(transcriptions) {
+        // Store transcriptions for report generation
+        window.currentTranscriptions = transcriptions;
+        
+        transcriptionsContainer.innerHTML = '';
+        
+        if (transcriptions.length === 0) {
+            transcriptionsContainer.innerHTML = '<p>No transcriptions found.</p>';
+            return;
+        }
+        
+        for (const item of transcriptions) {
+            const transcriptionDiv = document.createElement('div');
+            transcriptionDiv.className = 'transcription-item';
+            
+            // Create statutes summary section
+            let statutesSummary = '';
+            if (item.statutes && item.statutes.length > 0) {
+                // Create comparison results display if available
+                let comparisonContent = '';
+                if (item.statute_comparisons && item.statute_comparisons.length > 0) {
+                    comparisonContent = `
+                        <div class="statute-comparisons">
+                            <h4>Statute Verification Results:</h4>
+                            <div class="comparison-list">
+                                ${item.statute_comparisons.map(comp => `
+                                    <div class="comparison-item ${comp.is_discrepancy ? 'discrepancy' : 'match'}">
+                                        <div class="comparison-header">
+                                            <span class="statute-id">${comp.statute_id}</span>
+                                            <span class="similarity-score">
+                                                Match: ${(comp.similarity_score * 100).toFixed(1)}%
+                                                ${comp.is_discrepancy ? 
+                                                    '<span class="discrepancy-flag">⚠️ Potential Discrepancy</span>' : 
+                                                    '<span class="match-flag">✓ Verified</span>'}
+                                            </span>
+                                        </div>
+                                        <div class="comparison-details">
+                                            <div class="comparison-section">
+                                                <h5>From Hearing:</h5>
+                                                <p class="transcript-text">"${escapeHtml(comp.transcript_text)}"</p>
+                                            </div>
+                                            <div class="comparison-section">
+                                                <h5>From Florida Statutes:</h5>
+                                                ${comp.error ? 
+                                                    `<p class="error-message">${escapeHtml(comp.error)}</p>` :
+                                                    `<p class="statute-title">${escapeHtml(comp.title || '')}</p>
+                                                     <p class="statute-text">${escapeHtml(truncateText(comp.statute_text, 200))}</p>`
+                                                }
+                                                <a href="${comp.url}" target="_blank" class="statute-link">View on Official Florida Statutes Website</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                statutesSummary = `
+                    <div class="statutes-summary">
+                        <h4>Statute References Found (${item.statutes.length}):</h4>
+                        <ul class="statutes-list">
+                            ${item.statutes.map(statute => `
+                                <li>
+                                    <span class="statute-id">${statute.statute_id}</span> - 
+                                    <span class="statute-text">"${statute.text}"</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        ${comparisonContent}
+                    </div>
+                `;
+            } else {
+                statutesSummary = `
+                    <div class="statutes-summary">
+                        <p>No statute references found in this transcription.</p>
+                    </div>
+                `;
+            }
+            
+            transcriptionDiv.innerHTML = `
+                <h3>Transcription for File ID: ${item.file_id.substring(0, 8)}...</h3>
+                <p><strong>Hearing Date:</strong> ${item.hearing_date}</p>
+                ${statutesSummary}
+                <div class="transcription-text">
+                    ${item.highlighted_transcription || item.transcription}
+                </div>
+            `;
+            
+            // Add event listeners for statute reference hovers
+            setTimeout(() => {
+                const statuteRefs = transcriptionDiv.querySelectorAll('.statute-reference');
+                statuteRefs.forEach(ref => {
+                    ref.addEventListener('mouseenter', function() {
+                        this.classList.add('hover');
+                        const statuteId = this.getAttribute('data-statute-id');
+                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
+                        relatedRefs.forEach(relRef => {
+                            if (relRef !== this) {
+                                relRef.classList.add('related');
+                            }
+                        });
+                    });
+                    
+                    ref.addEventListener('mouseleave', function() {
+                        this.classList.remove('hover');
+                        const statuteId = this.getAttribute('data-statute-id');
+                        const relatedRefs = transcriptionDiv.querySelectorAll(`.statute-reference[data-statute-id="${statuteId}"]`);
+                        relatedRefs.forEach(relRef => {
+                            relRef.classList.remove('related');
+                        });
+                    });
+                    
+                    ref.addEventListener('click', function() {
+                        const statuteId = this.getAttribute('data-statute-id');
+                        fetchAndDisplayStatuteDetails(statuteId, this);
+                    });
+                });
+            }, 100);
+            
+            transcriptionsContainer.appendChild(transcriptionDiv);
+        }
+    }
+    
+    // Helper function to fetch and display statute details in a modal
+    async function fetchAndDisplayStatuteDetails(statuteId, element) {
+        try {
+            // Show loading indicator near the clicked element
+            const rect = element.getBoundingClientRect();
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'loading-indicator';
+            loadingIndicator.textContent = 'Loading statute...';
+            loadingIndicator.style.position = 'absolute';
+            loadingIndicator.style.top = `${window.scrollY + rect.bottom + 10}px`;
+            loadingIndicator.style.left = `${rect.left}px`;
+            document.body.appendChild(loadingIndicator);
+            
+            // Fetch statute details from the API
+            const response = await fetch(`http://localhost:8000/statute/${statuteId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch statute: ${response.statusText}`);
+            }
+            
+            const statuteData = await response.json();
+            
+            // Remove loading indicator
+            document.body.removeChild(loadingIndicator);
+            
+            // Create statute details modal
+            showStatuteModal(statuteData);
+        } catch (error) {
+            console.error('Error fetching statute details:', error);
+            alert(`Error fetching statute details: ${error.message}`);
+        }
+    }
+    
+    // Helper function to display a statute modal
+    function showStatuteModal(statuteData) {
+        // Create modal container
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'statute-modal-container';
+        
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'statute-modal';
+        
+        // Format the statute text with better readability
+        const statuteText = statuteData.text || 'Statute text not available';
+        
+        modalContent.innerHTML = `
+            <div class="statute-modal-header">
+                <h3>${statuteData.title || `Statute ${statuteData.statute_id}`}</h3>
+                <button class="close-modal">×</button>
+            </div>
+            <div class="statute-modal-body">
+                <p><strong>Statute ID:</strong> ${statuteData.statute_id}</p>
+                <div class="statute-full-text">
+                    <h4>Full Text:</h4>
+                    <pre>${escapeHtml(statuteText)}</pre>
+                </div>
+                <p class="statute-source">
+                    <a href="${statuteData.url}" target="_blank">View on Official Florida Statutes Website</a>
+                </p>
+                <p class="statute-cache-info">
+                    ${statuteData.cached ? 
+                        `<span class="cached-tag">Cached</span> Last updated: ${statuteData.last_updated || 'Unknown'}` : 
+                        '<span class="live-tag">Live Data</span>'}
+                </p>
+            </div>
+        `;
+        
+        // Append modal to container
+        modalContainer.appendChild(modalContent);
+        
+        // Append container to body
+        document.body.appendChild(modalContainer);
+        
+        // Add close functionality
+        const closeButton = modalContent.querySelector('.close-modal');
+        closeButton.addEventListener('click', function() {
+            document.body.removeChild(modalContainer);
+        });
+        
+        // Close when clicking outside the modal
+        modalContainer.addEventListener('click', function(e) {
+            if (e.target === modalContainer) {
+                document.body.removeChild(modalContainer);
+            }
+        });
+    }
+    
+    // Helper function to escape HTML special characters
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Helper function to truncate text with ellipsis
+    function truncateText(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
 });
