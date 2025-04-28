@@ -7,9 +7,10 @@ import shutil
 import uuid
 import whisper
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import time
 from app.services.statute_extractor import StatuteExtractor
+from app.services.statute_lookup import StatuteLookupService
 
 app = FastAPI(title="CourtCaseVibe API", description="API for court case audio transcription and statute verification")
 
@@ -39,6 +40,9 @@ def get_whisper_model():
 # Initialize the statute extractor
 statute_extractor = StatuteExtractor()
 
+# Initialize the statute lookup service
+statute_lookup = StatuteLookupService()
+
 class TranscriptionRequest(BaseModel):
     hearing_date: str
     file_ids: List[str]
@@ -50,12 +54,23 @@ class StatuteReference(BaseModel):
     text: str
     match_type: str
 
+class StatuteComparison(BaseModel):
+    statute_id: str
+    transcript_text: str
+    statute_text: str
+    similarity_score: float
+    is_discrepancy: bool
+    url: str
+    title: Optional[str] = None
+    error: Optional[str] = None
+
 class TranscriptionResponse(BaseModel):
     transcription: str
     highlighted_transcription: str
     file_id: str
     hearing_date: str
     statutes: List[StatuteReference]
+    statute_comparisons: List[StatuteComparison] = []
 
 @app.get("/")
 async def root():
@@ -119,17 +134,62 @@ async def transcribe_audio(request: TranscriptionRequest):
                 ) for statute in statutes
             ]
             
+            # Lookup and compare statutes with the Florida Statutes website
+            statute_comparisons = []
+            if statutes:
+                # Prepare statute data for batch processing
+                statute_data = [
+                    {"statute_id": statute["statute_id"], "text": statute["text"]} 
+                    for statute in statutes
+                ]
+                
+                # Process statutes in batch
+                comparison_results = statute_lookup.batch_process_statutes(statute_data)
+                
+                # Convert to Pydantic models
+                statute_comparisons = [
+                    StatuteComparison(
+                        statute_id=comp["statute_id"],
+                        transcript_text=comp["transcript_text"],
+                        statute_text=comp["statute_text"],
+                        similarity_score=comp["similarity_score"],
+                        is_discrepancy=comp["is_discrepancy"],
+                        url=comp["url"],
+                        title=comp.get("title"),
+                        error=comp.get("error")
+                    ) for comp in comparison_results
+                ]
+            
             results.append(TranscriptionResponse(
                 transcription=transcription,
                 highlighted_transcription=highlighted_text,
                 file_id=file_id,
                 hearing_date=request.hearing_date,
-                statutes=statute_references
+                statutes=statute_references,
+                statute_comparisons=statute_comparisons
             ))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Transcription error: {str(e)}")
     
     return results
+
+@app.get("/statute/{statute_id}")
+async def get_statute(statute_id: str, force_refresh: bool = False):
+    """
+    Endpoint to look up a specific statute by ID
+    
+    Args:
+        statute_id: The ID of the statute to look up (e.g., "456.013")
+        force_refresh: Whether to bypass the cache and fetch fresh data
+        
+    Returns:
+        Statute information from the Florida Statutes website
+    """
+    try:
+        result = statute_lookup.fetch_statute(statute_id, force_refresh)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving statute: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

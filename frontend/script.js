@@ -171,6 +171,46 @@ document.addEventListener('DOMContentLoaded', function() {
             // Create statutes summary section
             let statutesSummary = '';
             if (item.statutes && item.statutes.length > 0) {
+                // Create comparison results display if available
+                let comparisonContent = '';
+                if (item.statute_comparisons && item.statute_comparisons.length > 0) {
+                    comparisonContent = `
+                        <div class="statute-comparisons">
+                            <h4>Statute Verification Results:</h4>
+                            <div class="comparison-list">
+                                ${item.statute_comparisons.map(comp => `
+                                    <div class="comparison-item ${comp.is_discrepancy ? 'discrepancy' : 'match'}">
+                                        <div class="comparison-header">
+                                            <span class="statute-id">${comp.statute_id}</span>
+                                            <span class="similarity-score">
+                                                Match: ${(comp.similarity_score * 100).toFixed(1)}%
+                                                ${comp.is_discrepancy ? 
+                                                    '<span class="discrepancy-flag">⚠️ Potential Discrepancy</span>' : 
+                                                    '<span class="match-flag">✓ Verified</span>'}
+                                            </span>
+                                        </div>
+                                        <div class="comparison-details">
+                                            <div class="comparison-section">
+                                                <h5>From Hearing:</h5>
+                                                <p class="transcript-text">"${escapeHtml(comp.transcript_text)}"</p>
+                                            </div>
+                                            <div class="comparison-section">
+                                                <h5>From Florida Statutes:</h5>
+                                                ${comp.error ? 
+                                                    `<p class="error-message">${escapeHtml(comp.error)}</p>` :
+                                                    `<p class="statute-title">${escapeHtml(comp.title || '')}</p>
+                                                     <p class="statute-text">${escapeHtml(truncateText(comp.statute_text, 200))}</p>`
+                                                }
+                                                <a href="${comp.url}" target="_blank" class="statute-link">View on Official Florida Statutes Website</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
                 statutesSummary = `
                     <div class="statutes-summary">
                         <h4>Statute References Found (${item.statutes.length}):</h4>
@@ -182,6 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </li>
                             `).join('')}
                         </ul>
+                        ${comparisonContent}
                     </div>
                 `;
             } else {
@@ -227,13 +268,115 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     ref.addEventListener('click', function() {
                         const statuteId = this.getAttribute('data-statute-id');
-                        alert(`In the future, this will show detailed information about Florida Statute ${statuteId}`);
+                        fetchAndDisplayStatuteDetails(statuteId, this);
                     });
                 });
             }, 100);
             
             transcriptionsContainer.appendChild(transcriptionDiv);
         }
+    }
+    
+    // Helper function to fetch and display statute details in a modal
+    async function fetchAndDisplayStatuteDetails(statuteId, element) {
+        try {
+            // Show loading indicator near the clicked element
+            const rect = element.getBoundingClientRect();
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'loading-indicator';
+            loadingIndicator.textContent = 'Loading statute...';
+            loadingIndicator.style.position = 'absolute';
+            loadingIndicator.style.top = `${window.scrollY + rect.bottom + 10}px`;
+            loadingIndicator.style.left = `${rect.left}px`;
+            document.body.appendChild(loadingIndicator);
+            
+            // Fetch statute details from the API
+            const response = await fetch(`http://localhost:8000/statute/${statuteId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch statute: ${response.statusText}`);
+            }
+            
+            const statuteData = await response.json();
+            
+            // Remove loading indicator
+            document.body.removeChild(loadingIndicator);
+            
+            // Create statute details modal
+            showStatuteModal(statuteData);
+        } catch (error) {
+            console.error('Error fetching statute details:', error);
+            alert(`Error fetching statute details: ${error.message}`);
+        }
+    }
+    
+    // Helper function to display a statute modal
+    function showStatuteModal(statuteData) {
+        // Create modal container
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'statute-modal-container';
+        
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'statute-modal';
+        
+        // Format the statute text with better readability
+        const statuteText = statuteData.text || 'Statute text not available';
+        
+        modalContent.innerHTML = `
+            <div class="statute-modal-header">
+                <h3>${statuteData.title || `Statute ${statuteData.statute_id}`}</h3>
+                <button class="close-modal">×</button>
+            </div>
+            <div class="statute-modal-body">
+                <p><strong>Statute ID:</strong> ${statuteData.statute_id}</p>
+                <div class="statute-full-text">
+                    <h4>Full Text:</h4>
+                    <pre>${escapeHtml(statuteText)}</pre>
+                </div>
+                <p class="statute-source">
+                    <a href="${statuteData.url}" target="_blank">View on Official Florida Statutes Website</a>
+                </p>
+                <p class="statute-cache-info">
+                    ${statuteData.cached ? 
+                        `<span class="cached-tag">Cached</span> Last updated: ${statuteData.last_updated || 'Unknown'}` : 
+                        '<span class="live-tag">Live Data</span>'}
+                </p>
+            </div>
+        `;
+        
+        // Append modal to container
+        modalContainer.appendChild(modalContent);
+        
+        // Append container to body
+        document.body.appendChild(modalContainer);
+        
+        // Add close functionality
+        const closeButton = modalContent.querySelector('.close-modal');
+        closeButton.addEventListener('click', function() {
+            document.body.removeChild(modalContainer);
+        });
+        
+        // Close when clicking outside the modal
+        modalContainer.addEventListener('click', function(e) {
+            if (e.target === modalContainer) {
+                document.body.removeChild(modalContainer);
+            }
+        });
+    }
+    
+    // Helper function to escape HTML special characters
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Helper function to truncate text with ellipsis
+    function truncateText(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
     }
     
     // New upload button

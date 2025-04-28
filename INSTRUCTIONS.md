@@ -131,6 +131,7 @@ Add the ability to fetch statutes in real-time from the Florida Statutes website
 3. Integrate this functionality into the backend service for real-time comparison.
   - Build statute URL patterns (e.g., `.../0456.013.html`)
   - Fetch and semantically match against transcript mentions
+4. I would also like to provide an API key for OpenAI models in oder to implement a ChatGPT like chat where the user can query the LLM to check for for accuracy, deficiencies and other misrepresentation of the law and check for consistency between hearings.
 
 **Expected Files:**
 - `backend/app/services/statute_lookup.py` (with web scraping and caching logic)
