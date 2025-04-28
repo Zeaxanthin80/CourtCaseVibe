@@ -39,6 +39,28 @@ class StatuteLookupService:
             self.model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
         return self.model
 
+    def calculate_similarity(self, text1: str, text2: str) -> float:
+        """
+        Calculate semantic similarity between two text strings
+        
+        Args:
+            text1: First text
+            text2: Second text
+            
+        Returns:
+            Similarity score between 0 and 1
+        """
+        model = self._get_embedding_model()
+        embedding1 = model.encode(text1)
+        embedding2 = model.encode(text2)
+        
+        # Calculate cosine similarity
+        similarity = np.dot(embedding1, embedding2) / (
+            np.linalg.norm(embedding1) * np.linalg.norm(embedding2)
+        )
+        
+        return float(similarity)
+
     def _init_database(self):
         """Initialize the SQLite database with the necessary tables"""
         conn = sqlite3.connect(self.db_path)
@@ -168,9 +190,16 @@ class StatuteLookupService:
         soup = BeautifulSoup(response.content, 'html.parser')
         
         # Extract the statute title and text
-        # Note: This is a simplified extraction and may need adjustments
-        title_element = soup.find('h1') or soup.find('h2') or soup.find('title')
-        title = title_element.text.strip() if title_element else f"Statute {statute_id}"
+        # Look for statute title in multiple possible locations
+        title = f"Statute {statute_id}"
+        title_element = soup.find('span', class_='StatuteTitle')
+        if title_element:
+            title = title_element.text.strip()
+        else:
+            # Try alternative locations
+            title_element = soup.find('h1') or soup.find('h2') or soup.find('title')
+            if title_element:
+                title = title_element.text.strip()
         
         # Try to find the main statute text container
         # This may vary based on the actual website structure
@@ -186,13 +215,17 @@ class StatuteLookupService:
                 text = body.get_text(separator="\n", strip=True)
             else:
                 text = "Statute text not found."
+                
+        # Check if we found meaningful statute content
+        # If the response doesn't contain expected elements, mark it as not found
+        found = bool(statute_text_element)
         
         return {
             "statute_id": statute_id,
             "title": title,
             "text": text,
             "url": url,
-            "found": True,
+            "found": found,
             "cached": False
         }
     
@@ -224,6 +257,7 @@ class StatuteLookupService:
             if datetime.now() - last_updated > timedelta(days=CACHE_EXPIRY):
                 return None
             
+            # Return the cached result
             return {
                 "statute_id": result[0],
                 "title": result[1],
